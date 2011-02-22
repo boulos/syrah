@@ -1,0 +1,251 @@
+\documentclass[11pt]{amsart}
+\usepackage{geometry}                % See geometry.pdf to learn the layout options. There are lots.
+\geometry{letterpaper}                   % ... or a4paper or a5paper or ... 
+%\geometry{landscape}                % Activate for for rotated page geometry
+%\usepackage[parfill]{parskip}    % Activate to begin paragraphs with an empty line rather than an indent
+\usepackage{graphicx}
+\usepackage{amssymb}
+\usepackage{epstopdf}
+\usepackage{listings}
+\DeclareGraphicsRule{.tif}{png}{.png}{`convert #1 `dirname #1`/`basename #1 .tif`.png}
+
+\title{Syrah Design}
+\author{Solomon Boulos}
+\date{}                                           % Activate to display a given date or no date
+
+\newcommand{\elemType}[1]{\texttt{#1}}
+\newcommand{\vectorOp}[1]{\texttt{#1}}
+
+\lstset{
+  language=C++, %
+  float=tbph, %
+  basicstyle=\small\ttfamily, %
+  columns=flexible, %
+  tabsize=2, %
+  tab=$\to$, %
+  frame=none, %
+  extendedchars=true, %
+  keepspaces=true, %
+  showspaces=false, %
+  showstringspaces=false, %
+  showtabs=false, %
+  prebreak={}, %
+  breaklines=true, %
+  captionpos=b%
+}
+
+\begin{document}
+\maketitle
+
+\section{Overview}
+
+Syrah is a collection of header files to make using SIMD units and
+tasks easier by providing an abstraction over system provided thread
+and vector implementations. Syrah is written entirely in C++ allowing
+current C++ apps to take direct advantage of it, as well as supporting
+languages that translate to C++ (i.e.\ source-to-source
+compilation). Syrah provides two fundamental abstractions: short
+(fixed-length) vectors and tasks. On top of these building blocks,
+data-parallel languages that operate on long vectors can be
+implemented efficiently.
+
+\subsection{Short (Fixed-Length) Vectors}
+
+Many modern architectures support fixed-length vector instructions
+that allow for instruction level parallelism (ILP). The most prevalent
+is Intel's SSE (128-bits wide, e.g.\ 4, 32-bit floats) which is being
+superseded by AVX (256-bits wide for float). AltiVec is a similar ISA
+for PowerPC based systems (including IBM's Cell). GPUs do not
+currently expose explicit vector instructions directly (ATI's CTM
+exposes the underlying 5-way VLIW, but not the full 80-wide
+``vectors''). NVIDIA's hardware presents a 16/32-wide vector
+abstraction on 8/16-wide hardware (similar to the original SSE being
+implemented as 2-wide instructions in lock step) which in CUDA/Compute
+mode is expanded to warp-wide operations (currently 32-wide). Intel's
+LRB new instructions (LRBni) offer explicit 16-wide 32-bit floating
+point or 32-bit integer vector operations with support for vector
+gather and scatter.
+
+Most of these vector instruction sets also have the ability to work on
+different types of data. For example, SSE and Altivec can either work
+on 4 floats or on 2 doubles at a time. Targeting each of these
+combinations of vector width, data type, and feature set (SSE has many
+versions) is a painful task; however, doing so is required for high
+performance. A primary goal of Syrah is to provide a common wrapper
+around these underlying architectures when possible to allow layers
+above it to take advantage of the underlying vector hardware. At the
+same time, the vector abstraction exposes capabilities that are not
+directly available in the underlying ISA (e.g.\ SSE lacks vector
+\vectorOp{gather}/\vectorOp{scatter} but Syrah implements it anyway)
+so that users have a common set of operations regardless of the
+underlying architecture.
+
+\subsection{Tasks}
+
+Many problems require not only instruction level parallelism within a
+single execution context, but across different threads of control as
+well. In Syrah, a task abstraction is provided to allow users to take
+advantage of parallelism across multiple execution contexts
+(e.g.\ threads, cores, or processor dies). As an example,
+data-parallel languages may want to apply kernels to long vectors by
+using many tasks that each use fixed-length SIMD vectors for maximum
+performance. Currently, programmers are offered either a barebones
+POSIX threads library or something like Intel's Threading Building
+Blocks (including an industrial implementation of the Cilk task
+system). Neither of these systems allow the programmer to easily
+create large bunches of coherent work and have them scheduled in a
+locality-aware manner.
+
+For domain specific languages built on top of Syrah, we envision that
+numerous hints about data locality and computational coherence would
+be possible that are not true in general. Adding direct support into
+the Syrah task scheduling system is a primary goal and differentiating
+factor between Syrah and previous systems. That being said, to date
+the focus has been on making SIMD units easier to use.
+
+\section{Short (Fixed-Length) Vectors}
+
+There are a number of example instruction sets for fixed-length
+vectors. No instruction set is perfect, which presents the programmer
+with a difficult choice: support the lowest common denominator vector
+ISA or emulate missing functionality. In Syrah, we have chosen to
+emulate missing functionality on instruction sets that lack operations
+we consider to be inherently useful. The most obvious examples are the
+\vectorOp{gather}/\vectorOp{scatter} operations which are unsupported
+on all current CPU architectures. At the same time, many vector ISAs
+expose operations that are do not have wide applicability
+(e.g.\ MPSADBW from SSE4.1) and are not exposed at the interface level
+in Syrah. Syrah's goal is to provide an easy to use, \emph{general}
+vector abstraction instead of one tailored to any particular
+architecture.
+
+Syrah's supports all the standard C-style numeric types: 32-bit
+floating point, 64-bit floating point (double), 8, 16, 32 and 64-bit
+integer (both signed and unsigned)\footnote{Currently, some types are
+  not implemented with efficient vector primitives, but the plan is to
+  do so when possible for each vector ISA.} Boolean masks are
+separated out as an explicit VectorMask type. This provides semantic
+knowledge about the operations involved (SSE and Altivec both overload
+the numeric types for masking) and allows programmers to easily use
+mixed precision computations. In SSE, the result of a comparison on 4
+floats is not easily compatible with a comparison on 4 doubles: the
+mask for the 4 doubles is twice as wide (in bits).  On the
+implementation side, this allows the implementation to be specialized
+as necessary per architecture; for example, using a single bit per
+element (bitvector) would be very storage efficient but would
+necessitate compression and decompression on the fly for SSE.
+
+Conversions between types are straightforward provided that the number
+of elements match. For example, converting a 64-vector of 32-bit floats
+to a 64-vector of 32-bit integers corresponds to an element-wise numeric
+conversion. Conversion between an 8-wide double vector and a 4-wide
+float vector is disallowed. The exception to this rule is that a
+single scalar value can be upconverted to a full-width vector by
+replication (i.e.\ $1.2 \rightarrow (1.2, 1.2, 1.2, 1.2)$).
+
+The (hopefully) current set of operations allowed on fixed-length
+vectors are as follows (all of which may eventually allow a
+vectorMask, but only highlighted where it is required):
+\newpage
+
+\begin{itemize}
+\item vector = vector + vector
+\item vector = vector - vector
+\item vector = vector * vector
+\item vector = elemType * vector
+\item vector = vector * elemType
+\item vector = vector / vector
+\item vector = elemType / vector
+\item vector = vector / elemType
+\item vector = vector \% vector
+\item vector = madd(vector, vector, vector)
+\item vector = floor(vector)
+\item vector = ceil(vector)
+\item vector = frac(vector)
+\item vector = sin(ieeeVector)
+\item vector = cos(ieeeVector)
+\item vector = tan(ieeeVector)
+\item void sincos(ieeeVector, ieeeVector, ieeeVector)
+\item vector = exp(ieeeVector)
+\item vector = log(ieeeVector)
+\item vector = ln(ieeeVector)
+\item vector = atan(ieeeVector)
+\item vector = atan2(ieeeVector, ieeeVector)
+\item vector = pow(ieeeVector, ieeeVector)
+\item vectorInt = vectorInt SLL vectorInt
+\item vectorInt = vectorInt SRL vectorInt
+\item vectorInt = vectorInt AND vectorInt
+\item vectorInt = vectorInt OR vectorInt
+\item vectorInt = vectorInt XOR vectorInt
+\item vector = -vector
+\item vector = abs(vector)
+\item vector = $\sqrt{\text{vector}}$
+\item vector = 1 / vector
+\item vector = 1 / $\sqrt{\text{vector}}$
+\item vector = max(vector, vector) 
+\item vector = min(vector, vector)
+\item vector = select(vector, vector, vectorMask)
+\item vector = prefixSum(vector)
+\item elemType = foldMax(vector)
+\item elemType = foldMin(vector)
+\item elemType = foldSum(vector)
+\item elemType = foldProd(vector)
+\item elemType = element(vector, i)
+\item vector = $\mathbf{0}$
+\item vector = broadcast(elemType)
+\item vector = load(address)
+\item vector = gather(address, offset vector, scale) 
+\item void store(vector, address)
+\item void scatter(vector, address, offset vector, scale)
+\item void push(vector, address)
+\item vectorMask = vector LT vector 
+\item vectorMask = vector LE vector 
+\item vectorMask = vector EQ vector
+\item vectorMask = vector NEQ vector
+\item vectorMask = vector GE vector
+\item vectorMask = vector GT vector
+\item vectorType1 = convert(vectorType2)
+\item vectorType1 = reinterpret(vectorType2sameSize)
+\item vectorMask = vectorMask AND vectorMask
+\item vectorMask = vectorMask AND (NOT vectorMask)
+\item vectorMask = vectorMask OR vectorMask
+\item vectorMask = vectorMask XOR vectorMask
+\item vectorMask = NOT vectorMask
+\item bool Any(vectorMask) 
+\item bool All(vectorMask)
+\item bool None(vectorMask)
+\item int NumActive(vectorMask)
+\end{itemize} 
+
+\subsection{A note on implementation}
+
+Most of the vector operations implemented in Syrah demonstrate heavy
+use of copy-and-paste programming. While this should normally be
+replaced with preprocessor macros to make the code denser, it was an
+explicit choice to copy-and-paste where appropriate to aid in
+debugging. Current source-level debugging and profiling tools do not
+seem to handle excessive use of macros and inlining very well. While
+this makes the code more difficult to maintain and more prone to
+copy-and-paste errors, the upshot is debuggable and profileable
+code. Similarly, while it would be possible to say generate the
+equivalent C++ code from say a Python script, we preferred to err on
+the side of simplicity: Syrah can be used as an external project by
+simply ``\#include''ing the headers you need.
+
+\subsection{Currently supported vector ISAs}
+
+The currently supported list of vector ISAs is:
+
+\begin{itemize}
+\item SSE2 and higher
+\item AVX
+\item NEON
+\item LRBni
+\end{itemize}
+
+We may try to expand this list to include AltiVec and other ISAs in
+the future, but they are currently not a high priority. In particular,
+the original SSE and MMX ISAs are both so old and so limited, that
+we're unlikely to support them at any point.
+
+\end{document}  

@@ -1,0 +1,102 @@
+Syrah is a set of C++ headers designed to insulate users from the
+specifics of particular vector ISAs and threading libraries. Syrah
+provides two fundamental abstractions: short (fixed-length) vectors
+and tasks. It is not a goal of Syrah to implement efficient
+"long-vector" or large data-parallel operations; however, these
+implementations can easily be built upon the building blocks provided
+here.
+
+Currently, Syrah supports the following vector ISAs:
+
+ - SSE
+ - AVX
+ - NEON
+ - LRBni
+
+This software is offered under a BSD licence.  Please read LICENSE
+located in this directory for details.
+
+Organization of the source code
+--------------------------------------------------------------------------------
+
+All source code lives in the src/ directory. All of Syrah is wrapped in
+the syrah namespace to avoid conflicts with other libraries. Similarly,
+all C-pre-processor macros are prefixed with Syrah (and appear in all
+caps). As a design choice, most operations are explicitly written out
+instead of relying on macro expansion to aid debugging and profiling
+(most debuggers and profilers have a difficult enough time with
+inlining, macros make it worse).
+
+The vector interface, including the default scalar implementation, is
+given in FixedVector.h. Applications need only include this file which
+then automatically includes one of the template specializations for a
+particular vector ISA (from the sse/, avx/, neon/ or lrb/ directories
+respectively). Currently, use of the vector ISAs is only for vectors
+of sizes that are multiples of the SIMD width of the ISA. For example,
+with SSE a FixedVector<float, 16> will use SSE intrinsics but
+FixedVector<float, 15> will not as 15 is not a multiple of 4. This
+will hopefully be addressed in the future, but is not a high priority.
+
+The external/ directory includes externally provided dependencies,
+including an AVX emulation header provided by Intel Corporation. In
+the future, similar header files will be contained here. In
+particular, the LRB prototype primitives header may be added at a
+future date if the license is changed to permit this. Until then the
+file can be found here:
+
+ http://software.intel.com/en-us/articles/prototype-primitives-guide/
+
+The task and thread related code is currently scattered throughout the
+src/ directory. The most useful bits are probably the AtomicCounter,
+SpinLock (and SpinPool) and perhaps the simple Task system. Currently,
+only pthreads are supported (though it would be easy to use the same
+interface for Win32, Solaris or IRIX threads as well) and no attempt
+at a work-stealing scheduler is offered.
+
+A (usually) nanosecond resolution timer is included CycleTimer, while
+a number of macros are included in Preprocessor.h for things like
+stack alignment, forcing inlining and loop unrolling.
+
+A few simple tests are included in the unitTests/
+directory. bringup.cc is an attempt at basic coverage of the vector
+operations of FixedVector and FixedVectorMask. The tasking system has
+been ignored for a while, so the taskBringup test is functional but
+not incredibly useful. A precision test comparing the math library
+against mpfr (if available) lives in math_precision.cc but isn't part
+of the cmake build system yet.
+
+The benchmarks/ directory contains both a simple saxpy test as well as
+a more comprehensive math library test (currently called trig). The
+math library test compares the performance of a scalar (system
+provided) implementation of each math function against the SYRAH
+provided version. This is currently the primary benchmark included
+with this distribution.
+
+Using the source code
+--------------------------------------------------------------------------------
+
+For applications that simply want to use the vector interface, include
+FixedVector.h in your project and set the appropriate compiler flags
+depending on your vector ISA and compiler (e.g. -msse4.1 to enable
+SSE4.1 with gcc). The bringup.cc code in unitTests/ is a reasonable
+example usage. Similarly, the taskBringup.cc example in unitTests/
+demonstrates use of all the tasking system features.
+
+To build the benchmarks and unit tests, make a build directory
+somewhere of your choosing and configure CMake. For example:
+
+ cd /path/to/syrah
+ mkdir build
+ cd build
+ ccmake ../src/
+
+In your CMake build flags (preferably the CMAKE_CXX_FLAGS so it
+applies to all build types), make sure to enable whatever vector ISA
+flag you need for your platform and compiler. Currently, you should
+also disable strict aliasing (e.g. via -fno-strict-aliasing with gcc)
+due to the way I support operator[] for vector types.
+
+As a warning, the bringup.cc test uses templates heavily and will take
+a while to compile with ancient versions of gcc. clang and recent
+versions of gcc handle templates much more gracefully and compile much
+more quickly.

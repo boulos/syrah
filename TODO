@@ -1,0 +1,49 @@
+- FixedVectorMask is currently untyped for ease of use. Unfortunately
+  this means that operator< for FixedVector<uint8_t, 16> has to
+  produce a FixedVectorMask<16> which has a static representation
+  (currently sized for optimal performance with float vectors). Having
+  a type-dependent FixedVectorMask (i.e. FixedVectorMask<uint8_t, 16>)
+  would limit the conversion between natural mask results to the
+  boundaries between types.
+
+- operator[] is currently implemented in such a way that requires you
+  disable the C strict aliasing rules (e.g. -fno-strict-aliasing for
+  gcc). It'd be better to implement a wrapper object approach similar
+  to the STL bool bitvector approach (get/set are easily implemented
+  with SSE intrinsics, and could be mapped back to operator[]
+  easily). Since operator[] on vectors is unlikely to be used in
+  performance critical paths, this is probably a fine solution.
+
+- The bringup test isn't exhaustive. It should have more coverage. It
+  should also probably resemble a real unit testing framework (but I'm
+  not interested in a boost/gtest/other dependency)
+
+- The docs haven't been updated in a while.
+
+- The math library code is experimental. In particular, the trig
+  functions don't do range reduction very well resulting in
+  catostrophic cancellation. Exp, Ln and similar are pretty okay, but
+  sin/cos aren't reputable replacements for those in libc.
+
+- The math library unit test isn't part of the regular build and
+  depends on mpfr. It should be added to the CMake build.
+
+- The interface to the math library code needs to be updated as
+  well. Currently sin/cos/etc are defined for all vector types. This
+  should be updated to be more like namespace std (sin is defined for
+  both double and float, but nothing else) and glibc (sinf should
+  still be available and only on float). Moreover, the coefficients
+  for most of the polynomials should really be optimized separately
+  for double and float.
+
+- The threading code needs some serious TLC.
+
+- There isn't currently any 64-bit int or unsigned int support. (this
+  incidentally blocks proper double precision math functions in some
+  cases)
+
+- There isn't an AltiVec "backend".
+
+- Also, the CMakeLists needs to set the appropriate system vector ISA
+  flags for people given their compiler (or at least tell people to do
+  so).
