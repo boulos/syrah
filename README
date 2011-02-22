@@ -19,13 +19,14 @@ located in this directory for details.
 Organization of the source code
 --------------------------------------------------------------------------------
 
-All source code lives in the src/ directory. All of Syrah is wrapped in
-the syrah namespace to avoid conflicts with other libraries. Similarly,
-all C-pre-processor macros are prefixed with Syrah (and appear in all
-caps). As a design choice, most operations are explicitly written out
-instead of relying on macro expansion to aid debugging and profiling
-(most debuggers and profilers have a difficult enough time with
-inlining, macros make it worse).
+All the header code lives in the src/include/syrah directory to make
+it easier to use the code via svn:externals and other means. All of
+Syrah is wrapped in the syrah namespace to avoid conflicts with other
+libraries. Similarly, all C-pre-processor macros are prefixed with
+Syrah (and appear in all caps). As a design choice, most operations
+are explicitly written out instead of relying on macro expansion to
+aid debugging and profiling (most debuggers and profilers have a
+difficult enough time with inlining, macros make it worse).
 
 The vector interface, including the default scalar implementation, is
 given in FixedVector.h. Applications need only include this file which
@@ -47,11 +48,11 @@ file can be found here:
  http://software.intel.com/en-us/articles/prototype-primitives-guide/
 
 The task and thread related code is currently scattered throughout the
-src/ directory. The most useful bits are probably the AtomicCounter,
-SpinLock (and SpinPool) and perhaps the simple Task system. Currently,
-only pthreads are supported (though it would be easy to use the same
-interface for Win32, Solaris or IRIX threads as well) and no attempt
-at a work-stealing scheduler is offered.
+src/include/syrah directory. The most useful bits are probably the
+AtomicCounter, SpinLock (and SpinPool) and perhaps the simple Task
+system. Currently, only pthreads are supported (though it would be
+easy to use the same interface for Win32, Solaris or IRIX threads as
+well) and no attempt at a work-stealing scheduler is offered.
 
 A (usually) nanosecond resolution timer is included CycleTimer, while
 a number of macros are included in Preprocessor.h for things like
