@@ -235,7 +235,7 @@ int main(int argc, char** argv) {
     permutation[i] = i;
   }
 
-#if 0
+#if 1
   BenchFunctions("gather_scalar", gather_scalar,
                  "copy_scalar", copy_scalar,
                  input, scalar_output, vector_output, permutation, num_elements, bench, warmup);
@@ -243,6 +243,11 @@ int main(int argc, char** argv) {
   BenchFunctions("copy_scalar", copy_scalar,
                  "copy_scalar_unroll16", copy_scalar_unroll16,
                  input, scalar_output, vector_output, permutation, num_elements, bench, warmup);
+
+  BenchFunctions("copy_scalar", copy_scalar,
+                 "memcpy_scalar", memcpy_scalar,
+                 input, scalar_output, vector_output, permutation, num_elements, bench, warmup);
+
   BenchFunctions("reverse_scalar", reverse_scalar,
                  "reverse_scalar_unroll16", reverse_scalar_unroll16,
                  input, scalar_output, vector_output, permutation, num_elements, bench, warmup);
