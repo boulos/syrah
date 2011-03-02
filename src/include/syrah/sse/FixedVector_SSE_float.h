@@ -753,14 +753,27 @@ for (int index = 0; index < N/4; index++)
   // output = (mask[i]) ? a : b
   template<int N>
   SYRAH_FORCEINLINE FixedVector<float, N, true> select(const FixedVector<float, N, true>& a,
-                                            const FixedVector<float, N, true>& b,
-                                            const FixedVectorMask<N>& mask) {
+                                                       const FixedVector<float, N, true>& b,
+                                                       const FixedVectorMask<N>& mask) {
     FixedVector<float, N, true> result;
     SYRAH_SSE_LOOP(i) {
       result.data[i] = syrah_blendv_ps(a.data[i], b.data[i], mask.data[i]);
     }
     return result;
   }
+
+  template<int N>
+  SYRAH_FORCEINLINE FixedVector<float, N, true> reverse(const FixedVector<float, N, true>& a) {
+    FixedVector<float, N, true> result;
+    // To reverse a N-wide vector, we first have to reverse the data
+    // array and then the bits themselves.
+    SYRAH_SSE_LOOP(i) {
+      result.data[i] = _mm_shuffle_ps(a.data[N/4 - i - 1], a.data[N/4 - i - 1], _MM_SHUFFLE(0, 1, 2, 3));
+    }
+    return result;
+  }
+
+
 #undef SYRAH_SSE_LOOP
 } // end namespace syrah
 

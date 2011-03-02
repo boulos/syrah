@@ -18,4 +18,6 @@
 #include "FixedVector_AVX_double.h"
 #include "FixedVector_AVX_int.h"
 
+#include "FixedVector_AVX_casts.h"
+
 #endif // _SYRAH_FIXED_VECTOR_AVX_H_

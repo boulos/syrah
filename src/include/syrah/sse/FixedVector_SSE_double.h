@@ -498,8 +498,8 @@ for (int index = 0; index < N/4; index++)
   // output = (mask[i]) ? a : b
   template<int N>
   SYRAH_FORCEINLINE FixedVector<double, N, true> select(const FixedVector<double, N, true>& a,
-                                             const FixedVector<double, N, true>& b,
-                                             const FixedVectorMask<N>& mask) {
+                                                        const FixedVector<double, N, true>& b,
+                                                        const FixedVectorMask<N>& mask) {
     FixedVector<double, N, true> result;
     SYRAH_SSE_LOOP(i) {
       __m128d mask_double = ExpandToDouble(mask.data[i/2], i & 1);
@@ -507,6 +507,16 @@ for (int index = 0; index < N/4; index++)
     }
     return result;
   }
+
+  template<int N>
+  SYRAH_FORCEINLINE FixedVector<double, N, true> reverse(const FixedVector<double, N, true>& a) {
+    FixedVector<double, N, true> result;
+    SYRAH_SSE_LOOP(i) {
+      result.data[i] = _mm_shuffle_pd(a.data[N/2 - 1 - i], a.data[N/2 - 1 - i], _MM_SHUFFLE(0, 0, 1, 1));
+    }
+    return result;
+  }
+
 #undef SYRAH_MASK_LOOP
 #undef SYRAH_SSE_LOOP
 } // end namespace syrah

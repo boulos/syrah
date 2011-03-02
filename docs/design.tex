@@ -182,9 +182,10 @@ vectorMask, but only highlighted where it is required):
 \item vector = $\sqrt{\text{vector}}$
 \item vector = 1 / vector
 \item vector = 1 / $\sqrt{\text{vector}}$
-\item vector = max(vector, vector) 
+\item vector = max(vector, vector)
 \item vector = min(vector, vector)
 \item vector = select(vector, vector, vectorMask)
+\item vector = reverse(vector)
 \item vector = prefixSum(vector)
 \item elemType = foldMax(vector)
 \item elemType = foldMin(vector)
@@ -194,12 +195,12 @@ vectorMask, but only highlighted where it is required):
 \item vector = $\mathbf{0}$
 \item vector = broadcast(elemType)
 \item vector = load(address)
-\item vector = gather(address, offset vector, scale) 
+\item vector = gather(address, offset vector, scale)
 \item void store(vector, address)
 \item void scatter(vector, address, offset vector, scale)
 \item void push(vector, address)
-\item vectorMask = vector LT vector 
-\item vectorMask = vector LE vector 
+\item vectorMask = vector LT vector
+\item vectorMask = vector LE vector
 \item vectorMask = vector EQ vector
 \item vectorMask = vector NEQ vector
 \item vectorMask = vector GE vector
@@ -211,11 +212,13 @@ vectorMask, but only highlighted where it is required):
 \item vectorMask = vectorMask OR vectorMask
 \item vectorMask = vectorMask XOR vectorMask
 \item vectorMask = NOT vectorMask
-\item bool Any(vectorMask) 
+\item vectorMask = reverse(vectorMask)
+\item bool Any(vectorMask)
 \item bool All(vectorMask)
 \item bool None(vectorMask)
+
 \item int NumActive(vectorMask)
-\end{itemize} 
+\end{itemize}
 
 \subsection{A note on implementation}
 

@@ -619,7 +619,7 @@ SYRAH_FORCEINLINE FixedVector& operator OP(const FixedVector& v) { \
 
   template<typename ElemType, int N, bool SIMDMultiple>
   SYRAH_FORCEINLINE FixedVector<ElemType, N, SIMDMultiple> min(const FixedVector<ElemType, N, SIMDMultiple>& v1,
-                                                    const FixedVector<ElemType, N, SIMDMultiple>& v2) {
+                                                               const FixedVector<ElemType, N, SIMDMultiple>& v2) {
     FixedVector<ElemType, N, SIMDMultiple> result;
     for (int i = 0; i < N; i++) {
       result[i] = std::min(v1[i], v2[i]);
@@ -629,7 +629,7 @@ SYRAH_FORCEINLINE FixedVector& operator OP(const FixedVector& v) { \
 
   template<typename ElemType, int N, bool SIMDMultiple>
   SYRAH_FORCEINLINE FixedVector<ElemType, N, SIMDMultiple> max(const FixedVector<ElemType, N, SIMDMultiple>& v1,
-                                                    const FixedVector<ElemType, N, SIMDMultiple>& v2) {
+                                                               const FixedVector<ElemType, N, SIMDMultiple>& v2) {
     FixedVector<ElemType, N, SIMDMultiple> result;
     for (int i = 0; i < N; i++) {
       result[i] = std::max(v1[i], v2[i]);
@@ -652,14 +652,25 @@ SYRAH_FORCEINLINE FixedVector& operator OP(const FixedVector& v) { \
   // output = (mask[i]) ? a : b
   template<typename ElemType, int N, bool SIMDMultiple>
   SYRAH_FORCEINLINE FixedVector<ElemType, N, SIMDMultiple> select(const FixedVector<ElemType, N, SIMDMultiple>& a,
-                                                       const FixedVector<ElemType, N, SIMDMultiple>& b,
-                                                       const FixedVectorMask<N>& mask) {
+                                                                  const FixedVector<ElemType, N, SIMDMultiple>& b,
+                                                                  const FixedVectorMask<N>& mask) {
     FixedVector<ElemType, N, SIMDMultiple> result;
     for (int i = 0; i < N; i++) {
       result[i] = (mask.get(i)) ? a[i] : b[i];
     }
     return result;
   }
+
+  // output[i] = a[N - 1 - i] (output is reversed a)
+  template<typename ElemType, int N, bool SIMDMultiple>
+  SYRAH_FORCEINLINE FixedVector<ElemType, N, SIMDMultiple> reverse(const FixedVector<ElemType, N, SIMDMultiple>& a) {
+    FixedVector<ElemType, N, SIMDMultiple> result;
+    for (int i = 0; i < N; i++) {
+      result[i] = a[N - 1 - i];
+    }
+    return result;
+  }
+
 
   template<typename ElemType, int N, bool SIMDMultiple>
   SYRAH_FORCEINLINE std::ostream& operator<<(std::ostream& os, const FixedVector<ElemType, N, SIMDMultiple>& v) {

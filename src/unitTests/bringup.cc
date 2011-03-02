@@ -121,6 +121,10 @@ enum ReductionOp {
   ReduceProduct
 };
 
+enum PermuteOp {
+  Reverse
+};
+
 static const char* BinaryOpToString(const BinaryOp op) {
   switch (op) {
   case ADD:
@@ -235,6 +239,14 @@ static const char* ReductionOpToString(const ReductionOp op) {
   return "UNREACHABLE";
 }
 
+static const char* PermuteOpToString(const PermuteOp op) {
+  switch (op) {
+  case Reverse:
+    return "REVERSE";
+  }
+  return "UNREACHABLE";
+}
+
 template <typename T>
 bool ValueEquals(const T val, const T expected) {
   T epsilon(0);
@@ -281,8 +293,6 @@ bool VecEqualsArray(const FixedVector<T, N>& vec, const T* expected_values) {
   }
   return num_failed == 0;
 }
-
-
 
 template <typename T, int N>
 bool VecEqualsArrayBinaryOp(const FixedVector<T, N>& vec, const T* a, const T* b, BinaryOp op) {
@@ -492,6 +502,8 @@ bool ScalarEqualReductionOp(const T& val, const T* a, ReductionOp op) {
 }
 
 
+
+
 template <typename T>
 T ScalarFloor(const T val) {
   if (typeid(T) == typeid(float)) {
@@ -576,6 +588,31 @@ bool VecEqualsArrayUnaryOp(const FixedVector<T, N>& vec, const T* a, UnaryOp op)
     } else {
       if (syrah_debug_verbose) {
         std::cerr << VEC_STRING << " = " << UnaryOpToString(op) << " " << ValWrapper<T>(a[i]) << std::endl;
+      }
+    }
+  }
+  return num_failed == 0;
+}
+
+
+template <typename T, int N>
+bool VecEqualsArrayPermuteOp(const FixedVector<T, N>& vec, const T* a, PermuteOp op) {
+  int num_failed = 0;
+  for (int i = 0; i < N; i++) {
+    T expected_value = T(0);
+    switch (op) {
+    case Reverse:
+      expected_value = a[N - 1 - i];
+      break;
+    }
+
+    if (!ValueEquals<T>(vec[i], expected_value)) {
+      std::cerr << VEC_STRING << ". Expected " << ValWrapper<T>(expected_value) << " = " << PermuteOpToString(op) << " " << ValWrapper<T>(a[i]) << std::endl;
+      num_failed++;
+      if (exit_on_failure) return false;
+    } else {
+      if (syrah_debug_verbose) {
+        std::cerr << VEC_STRING << " = " << PermuteOpToString(op) << " " << ValWrapper<T>(a[i]) << std::endl;
       }
     }
   }
@@ -1165,7 +1202,6 @@ bool ComparisonOpTests() {
   return true;
 }
 
-// TODO(boulos): Merge/Select
 template <typename T, int WIDTH>
 bool MergeSelectTestPerWidthTemplatedType() {
   T* kInputA = GetOperatorInput<T>(0);
@@ -1217,7 +1253,6 @@ bool MergeSelectTests() {
   return true;
 }
 
-// TODO(boulos): Gather/Scatter
 template <typename T, int N>
 bool GatherScatterTestPerWidthTemplatedType() {
   T* kInputA = GetOperatorInput<T>(0);
@@ -1421,6 +1456,32 @@ bool BitwiseTests() {
   return true;
 }
 
+template<typename T, int WIDTH>
+bool PermuteTestsPerWidthTemplatedType() {
+  T* kInputA = GetOperatorInput<T>(0);
+
+  // Test reverse
+  FixedVector<T, WIDTH> reversed = reverse(FixedVector<T, WIDTH>(kInputA));
+  if (!VecEqualsArrayPermuteOp(reversed, kInputA, Reverse)) return false;
+
+  return true;
+}
+
+template<int WIDTH>
+bool PermuteTestsPerWidth() {
+  if (!PermuteTestsPerWidthTemplatedType<float, WIDTH>()) return false;
+  if (!PermuteTestsPerWidthTemplatedType<double, WIDTH>()) return false;
+  if (!PermuteTestsPerWidthTemplatedType<int, WIDTH>()) return false;
+
+  return true;
+}
+
+bool PermuteTests() {
+  if (!PermuteTestsPerWidth<16>()) return false;
+  if (!PermuteTestsPerWidth<32>()) return false;
+  return true;
+}
+
 // TODO(boulos): PrefixSum
 
 // TODO(boulos): Int shifts
@@ -1495,6 +1556,12 @@ int vec_tests() {
 
   if (!ReductionTests()) {
     std::cerr << "Reduction tests failed." << std::endl;
+    num_failed++;
+    if (exit_on_failure) return -1;
+  }
+
+  if (!PermuteTests()) {
+    std::cerr << "Permute tests failed." << std::endl;
     num_failed++;
     if (exit_on_failure) return -1;
   }

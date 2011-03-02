@@ -679,8 +679,8 @@ for (int index = 0; index < N/8; index++)
   // a * b + c
   template<int N>
   SYRAH_FORCEINLINE FixedVector<double, N, true> madd(const FixedVector<double, N, true>& a,
-                                                     const FixedVector<double, N, true>& b,
-                                                     const FixedVector<double, N, true>& c) {
+                                                      const FixedVector<double, N, true>& b,
+                                                      const FixedVector<double, N, true>& c) {
     FixedVector<double, N, true> result;
     SYRAH_AVX_LOOP(i) {
       result.data[i] = _mm256_add_pd(_mm256_mul_pd(a.data[i], b.data[i]), c.data[i]);
@@ -710,7 +710,7 @@ for (int index = 0; index < N/8; index++)
   // output = (mask[i]) ? a : b
   template<int N>
   SYRAH_FORCEINLINE FixedVector<double, N, true> select(const FixedVector<double, N, true>& a,
-                                                       const FixedVector<double, N, true>& b,
+                                                        const FixedVector<double, N, true>& b,
                                                         const FixedVectorMask<N, true>& mask) {
     FixedVector<double, N, true> result;
     SYRAH_AVX_LOOP(i) {
@@ -719,6 +719,30 @@ for (int index = 0; index < N/8; index++)
     }
     return result;
   }
+
+  template<int N>
+  SYRAH_FORCEINLINE FixedVector<double, N, true> reverse(const FixedVector<double, N, true>& a) {
+    FixedVector<double, N, true> result;
+    // To reverse a N-wide vector, we first have to reverse the data
+    // array and then the bits themselves.
+    SYRAH_AVX_LOOP(i) {
+      __m256d other = a.data[N/4 - i - 1];
+      // Can't shuffle the whole thing with AVX, need to get the first half and the second half
+      __m128d lo_part = _mm256_extractf128_pd(other, 0);
+      __m128d hi_part = _mm256_extractf128_pd(other, 1);
+
+      // Reverse the parts
+      lo_part = _mm_shuffle_pd(lo_part, lo_part, _MM_SHUFFLE(0, 0, 1, 1));
+      hi_part = _mm_shuffle_pd(hi_part, hi_part, _MM_SHUFFLE(0, 0, 1, 1));
+
+      // Put it back together but in reverse part order (reversed_hi, reversed_lo)
+      __m256d reversed = _mm256_insertf128_pd(_mm256_castpd128_pd256(hi_part), lo_part, 1);
+      result.data[i] = reversed;
+    }
+    return result;
+  }
+
+
 #undef SYRAH_MASK_LOOP
 #undef SYRAH_AVX_LOOP
 #undef SYRAH_EXPAND_TO_DOUBLE

@@ -24,5 +24,6 @@
 #include "FixedVector_SSE_float.h"
 #include "FixedVector_SSE_double.h"
 #include "FixedVector_SSE_int.h"
+#include "FixedVector_SSE_casts.h"
 
 #endif // _SYRAH_FIXED_VECTOR_SSE_H_

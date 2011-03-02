@@ -699,6 +699,30 @@ namespace syrah {
     }
     return result;
   }
+
+  template<int N>
+  SYRAH_FORCEINLINE FixedVector<float, N, true> reverse(const FixedVector<float, N, true>& a) {
+    FixedVector<float, N, true> result;
+    // To reverse a N-wide vector, we first have to reverse the data
+    // array and then the bits themselves.
+    SYRAH_AVX_LOOP(i) {
+      __m256 other = a.data[N/8 - i - 1];
+      // Can't shuffle the whole thing with AVX, need to get the first half and the second half
+      __m128 lo_part = _mm256_extractf128_ps(other, 0);
+      __m128 hi_part = _mm256_extractf128_ps(other, 1);
+
+      // Reverse the parts
+      lo_part = _mm_shuffle_ps(lo_part, lo_part, _MM_SHUFFLE(0, 1, 2, 3));
+      hi_part = _mm_shuffle_ps(hi_part, hi_part, _MM_SHUFFLE(0, 1, 2, 3));
+
+      // Put it back together but in reverse part order (reversed_hi, reversed_lo)
+      __m256 reversed = _mm256_insertf128_ps(_mm256_castps128_ps256(hi_part), lo_part, 1);
+      result.data[i] = reversed;
+    }
+    return result;
+  }
+
+
 #undef SYRAH_AVX_LOOP
 } // end namespace syrah
 

@@ -830,29 +830,14 @@ for (int index = 0; index < N/4; index++)
   }
 
   template<int N>
-  SYRAH_FORCEINLINE FixedVector<float, N, true>::FixedVector(const FixedVector<int, N> &v) {
+  SYRAH_FORCEINLINE FixedVector<int, N, true> reverse(const FixedVector<int, N, true>& a) {
+    FixedVector<int, N, true> result;
     SYRAH_SSE_LOOP(i) {
-      data[i] = _mm_cvtepi32_ps(v.data[i]);
-    }
-  }
-
-  template<int N>
-  SYRAH_FORCEINLINE FixedVector<float, N, true> FixedVector<float, N, true>::reinterpret(const FixedVector<int, N, true>& v) {
-    FixedVector<float, N> result;
-    SYRAH_SSE_LOOP(i) {
-      result.data[i] = _mm_castsi128_ps(v.data[i]);
+      result.data[i] = _mm_shuffle_epi32(a.data[N/4 - i - 1], _MM_SHUFFLE(0, 1, 2, 3));
     }
     return result;
   }
 
-  template<int N>
-  SYRAH_FORCEINLINE FixedVector<int, N, true> FixedVector<int, N, true>::reinterpret(const FixedVector<float, N, true>& v) {
-    FixedVector<int, N> result;
-    SYRAH_SSE_LOOP(i) {
-      result.data[i] = _mm_castps_si128(v.data[i]);
-    }
-    return result;
-  }
 
 #undef SYRAH_SSE_LOOP
 } // end namespace syrah

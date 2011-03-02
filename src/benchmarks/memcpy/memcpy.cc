@@ -4,7 +4,7 @@ using namespace syrah;
 static const int VecWidth = 16;
 static const int kDefaultNumElements = 1024;
 static const int kNumWarmup = 16;
-static const int kNumBench  = 1024;
+static const int kNumBench  = 1024 * 16 * 16;
 
 float* randomFloats(int how_many, unsigned int seed) {
   float* result = new float[how_many];
@@ -16,22 +16,44 @@ float* randomFloats(int how_many, unsigned int seed) {
   return result;
 }
 
-#if 0
-void gather_scalar(float* input, float* output, int* permute, int num_elements) {
+void gather_scalar(const float* input, float* output, const int* permute, int num_elements) {
   for (int i = 0; i < num_elements; i++) {
     output[i] = input[permute[i]];
   }
 }
-#else
-void gather_scalar(float* input, float* output, int* permute, int num_elements) {
-#if 0
+
+void copy_scalar(const float* input, float* output, const int* permute, int num_elements) {
   for (int i = 0; i < num_elements; i++) {
     output[i] = input[i];
   }
-#else
-#if 0
+}
+
+void copy_scalar_unroll16(const float* input, float* output, const int* permute, int num_elements) {
   int vec_end = num_elements & (~(VecWidth-1));
   for (int i = 0; i < vec_end; i+= VecWidth) {
+#if 0
+    float* dst = &output[i];
+    const float* src = &input[i];
+    *dst++ = *src++;
+    *dst++ = *src++;
+    *dst++ = *src++;
+    *dst++ = *src++;
+
+    *dst++ = *src++;
+    *dst++ = *src++;
+    *dst++ = *src++;
+    *dst++ = *src++;
+
+    *dst++ = *src++;
+    *dst++ = *src++;
+    *dst++ = *src++;
+    *dst++ = *src++;
+
+    *dst++ = *src++;
+    *dst++ = *src++;
+    *dst++ = *src++;
+    *dst++ = *src++;
+#else
     output[i + 0] = input[i + 0];
     output[i + 1] = input[i + 1];
     output[i + 2] = input[i + 2];
@@ -51,21 +73,59 @@ void gather_scalar(float* input, float* output, int* permute, int num_elements) 
     output[i + 13] = input[i + 13];
     output[i + 14] = input[i + 14];
     output[i + 15] = input[i + 15];
+#endif
   }
   if (vec_end != num_elements) {
     for (int i = vec_end; i < num_elements; i++) {
       output[i] = input[i];
     }
   }
-#else
-  memcpy(output, input, sizeof(float) * num_elements);
-#endif
-#endif
 }
-#endif
 
-#if 0
-void gather_vector(float* input, float* output, int* permute, int num_elements) {
+void memcpy_scalar(const float* input, float* output, const int* permute, int num_elements) {
+  memcpy(output, input, sizeof(float) * num_elements);
+}
+
+void reverse_scalar(const float* input, float* output, const int* permute, int num_elements) {
+  for (int i = 0; i < num_elements; i++) {
+    output[i] = input[num_elements - 1 - i];
+  }
+}
+
+void reverse_scalar_unroll16(const float* input, float* output, const int* permute, int num_elements) {
+  int vec_end = num_elements & (~(VecWidth-1));
+  for (int i = 0; i < vec_end; i+= VecWidth) {
+    float* dst = &output[i];
+    const float* src = &input[num_elements - 1 - i];
+    // NOTE(boulos): This version is much faster than doing array
+    // indexing while above they're similar with arrays being faster.
+    *dst++ = *src--;
+    *dst++ = *src--;
+    *dst++ = *src--;
+    *dst++ = *src--;
+
+    *dst++ = *src--;
+    *dst++ = *src--;
+    *dst++ = *src--;
+    *dst++ = *src--;
+
+    *dst++ = *src--;
+    *dst++ = *src--;
+    *dst++ = *src--;
+    *dst++ = *src--;
+
+    *dst++ = *src--;
+    *dst++ = *src--;
+    *dst++ = *src--;
+    *dst++ = *src--;
+  }
+  for (int i = vec_end; i < num_elements; i++) {
+    output[i] = input[num_elements - 1 - i];
+  }
+}
+
+
+void gather_vector(const float* input, float* output, const int* permute, int num_elements) {
   int vec_end = num_elements & (~(VecWidth-1));
   for (int i = 0; i < vec_end; i+=VecWidth) {
     FixedVector<int, VecWidth> gather_indices(&permute[i], true);
@@ -82,8 +142,8 @@ void gather_vector(float* input, float* output, int* permute, int num_elements) 
     gathered.store_aligned(&(output[i]), store_mask);
   }
 }
-#else
-void gather_vector(float* input, float* output, int* permute, int num_elements) {
+
+void copy_vector(const float* input, float* output, const int* permute, int num_elements) {
   int vec_end = num_elements & (~(VecWidth-1));
   for (int i = 0; i < vec_end; i+=VecWidth) {
     FixedVector<float, VecWidth> gathered(&input[i], true);
@@ -96,7 +156,68 @@ void gather_vector(float* input, float* output, int* permute, int num_elements) 
     gathered.store_aligned(&(output[i]), store_mask);
   }
 }
-#endif
+
+void reverse_vector(const float* input, float* output, const int* permute, int num_elements) {
+  int vec_end = num_elements & (~(VecWidth-1));
+  for (int i = 0; i < vec_end; i+=VecWidth) {
+    // Load the vecwidth stuff, and then do it backwards
+    FixedVector<float, VecWidth> gathered(&input[num_elements - i - VecWidth], true);
+    gathered = reverse(gathered);
+    gathered.store_aligned(&(output[i]));
+  }
+  if (vec_end != num_elements) {
+    int i = vec_end;
+    FixedVectorMask<VecWidth> store_mask = FixedVectorMask<VecWidth>::FirstN(num_elements - vec_end);
+    FixedVector<float, VecWidth> gathered(&input[num_elements - i - VecWidth], true);
+    gathered = reverse(gathered);
+    gathered.store_aligned(&(output[i]), store_mask);
+  }
+}
+
+typedef void(*MemCpyFunc)(const float*, float*, const int*, int);
+
+void BenchFunctions(const char* func1_name, MemCpyFunc func1,
+                    const char* func2_name, MemCpyFunc func2,
+                    const float* input,
+                    float* func1_output, float* func2_output,
+                    const int* permute, int num_elements,
+                    int bench, int warmup) {
+  for (int i = 0; i < warmup; i++) {
+    func1(input, func1_output, permute, num_elements);
+  }
+  CycleTimer::SysClock start_func1 = CycleTimer::currentTicks();
+  for (int i = 0; i < bench; i++) {
+    func1(input, func1_output, permute, num_elements);
+  }
+  CycleTimer::SysClock end_func1 = CycleTimer::currentTicks();
+
+  CycleTimer::SysClock func1_ticks = end_func1 - start_func1;
+  double func1_time_avg = func1_ticks * CycleTimer::secondsPerTick() / bench;
+  CycleTimer::SysClock func1_ticks_per_element = func1_ticks / (num_elements * bench);
+  printf("%25s time: %lf (%4.2f million elements per second, %d %s per element)\n", func1_name, func1_time_avg, (num_elements / func1_time_avg) / 1e6f, int(func1_ticks_per_element), CycleTimer::tickUnits());
+
+  if (func2) {
+    for (int i = 0; i < warmup; i++) {
+      func2(input, func2_output, permute, num_elements);
+    }
+    CycleTimer::SysClock start_func2 = CycleTimer::currentTicks();
+    for (int i = 0; i < bench; i++) {
+      func2(input, func2_output, permute, num_elements);
+    }
+    CycleTimer::SysClock end_func2 = CycleTimer::currentTicks();
+    CycleTimer::SysClock func2_ticks = end_func2 - start_func2;
+    double func2_time_avg = func2_ticks * CycleTimer::secondsPerTick() / bench;
+    CycleTimer::SysClock func2_ticks_per_element = func2_ticks / (num_elements * bench);
+    printf("%25s time: %lf (%4.2f million elements per second, %d %s per element)\n", func2_name, func2_time_avg, (num_elements / func2_time_avg) / 1e6f, int(func2_ticks_per_element), CycleTimer::tickUnits());
+    printf("%25s vs %s speedup: %lf\n\n", func1_name, func2_name, func1_time_avg / func2_time_avg);
+
+    for (int i = 0; i < num_elements; i++) {
+      if (func1_output[i] != func2_output[i]) {
+        printf("ERROR: Outputs differ %4d, %s -> %8f != %s -> %8f (input = %8f)\n", i, func1_name, func1_output[i], func2_name, func2_output[i], input[i]);
+      }
+    }
+  }
+}
 
 int main(int argc, char** argv) {
   int num_elements = kDefaultNumElements;
@@ -114,36 +235,25 @@ int main(int argc, char** argv) {
     permutation[i] = i;
   }
 
-  for (int i = 0; i < warmup; i++) {
-    gather_scalar(input, scalar_output, permutation, num_elements);
-  }
-  CycleTimer::SysClock start_scalar = CycleTimer::currentTicks();
-  for (int i = 0; i < bench; i++) {
-    gather_scalar(input, scalar_output, permutation, num_elements);
-  }
-  CycleTimer::SysClock end_scalar = CycleTimer::currentTicks();
+#if 0
+  BenchFunctions("gather_scalar", gather_scalar,
+                 "copy_scalar", copy_scalar,
+                 input, scalar_output, vector_output, permutation, num_elements, bench, warmup);
 
-  for (int i = 0; i < warmup; i++) {
-    gather_vector(input, vector_output, permutation, num_elements);
-  }
-  CycleTimer::SysClock start_vector = CycleTimer::currentTicks();
-  for (int i = 0; i < bench; i++) {
-    gather_vector(input, vector_output, permutation, num_elements);
-  }
-  CycleTimer::SysClock end_vector = CycleTimer::currentTicks();
+  BenchFunctions("copy_scalar", copy_scalar,
+                 "copy_scalar_unroll16", copy_scalar_unroll16,
+                 input, scalar_output, vector_output, permutation, num_elements, bench, warmup);
+  BenchFunctions("reverse_scalar", reverse_scalar,
+                 "reverse_scalar_unroll16", reverse_scalar_unroll16,
+                 input, scalar_output, vector_output, permutation, num_elements, bench, warmup);
 
-  CycleTimer::SysClock scalar_ticks = end_scalar - start_scalar;
-  CycleTimer::SysClock vector_ticks = end_vector - start_vector;
 
-  double scalar_time_avg = scalar_ticks * CycleTimer::secondsPerTick() / bench;
-  double vector_time_avg = vector_ticks * CycleTimer::secondsPerTick() / bench;
-
-  CycleTimer::SysClock scalar_ticks_per_element = scalar_ticks / (num_elements * bench);
-  CycleTimer::SysClock vector_ticks_per_element = vector_ticks / (num_elements * bench);
-
-  printf("%s scalar time: %lf (%4.2f million elements per second, %d %s per element)\n", "gather", scalar_time_avg, (num_elements / scalar_time_avg) / 1e6f, int(scalar_ticks_per_element), CycleTimer::tickUnits());
-  printf("%s vector time: %lf (%4.2f million elements per second, %d %s per element)\n", "gather", vector_time_avg, (num_elements / vector_time_avg) / 1e6f, int(vector_ticks_per_element), CycleTimer::tickUnits());
-  printf("%s vector speedup: %.2f\n", "memcpy", scalar_time_avg/vector_time_avg);
-
+  BenchFunctions("copy_scalar_unroll16", copy_scalar_unroll16,
+                 "copy_vector", copy_vector,
+                 input, scalar_output, vector_output, permutation, num_elements, bench, warmup);
+#endif
+  BenchFunctions("reverse_scalar_unroll16", reverse_scalar_unroll16,
+                 "reverse_vector", reverse_vector,
+                 input, scalar_output, vector_output, permutation, num_elements, bench, warmup);
   return 0;
 }

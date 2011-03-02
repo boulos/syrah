@@ -222,6 +222,15 @@ for (int index = 0; index < N/4; index++)
   }
 
   template<int N>
+  SYRAH_FORCEINLINE FixedVectorMask<N, true> reverse(const FixedVectorMask<N, true>& a) {
+    FixedVectorMask<N, true> result;
+    SYRAH_SSE_LOOP(i) {
+      result.data[i] = _mm_shuffle_ps(a.data[N/4 - 1 - i], a.data[N/4 - 1 - i], _MM_SHUFFLE(0, 1, 2, 3));
+    }
+    return result;
+  }
+
+  template<int N>
   SYRAH_FORCEINLINE int NumActive(const FixedVectorMask<N, true>& v) {
     int total_active = 0;
 #ifdef __SSE_4_1__
@@ -263,6 +272,8 @@ for (int index = 0; index < N/4; index++)
     }
     return result;
   }
+
+
 
 #undef SYRAH_SSE_LOOP
 } // end namespace syrah
