@@ -25,10 +25,12 @@ namespace syrah {
 
     // LAME(boulos): This generates ICE for ICC 12.0 on bringup
 
-    //__m128 subset = (first) ? _mm256_extractf128_ps(a, 0) : _mm256_extractf128_ps(a, 1);
-
+#ifndef __AVX__ // emulating AVX
+    __m128 subset = (first) ? _mm256_extractf128_ps(a, 0) : _mm256_extractf128_ps(a, 1);
+#else
     __m256 subset_256 = (first) ? a : _mm256_permute2f128_ps(a, a, 0x1);
     __m128 subset = _mm256_castps256_ps128(subset_256);
+#endif
 
     __m128 lo_part = _mm_shuffle_ps(subset, subset, _MM_SHUFFLE(1, 1, 0, 0));
     __m128 hi_part = _mm_shuffle_ps(subset, subset, _MM_SHUFFLE(3, 3, 2, 2));

@@ -18,7 +18,7 @@
 #define SYRAH_USE_AVX  1
 #define SYRAH_USE_SSE  0
 #define SYRAH_USE_LRB  0
-#elif defined(__SSE3__)
+#elif defined(__SSE2__)
 #define SYRAH_USE_NEON 0
 #define SYRAH_USE_SSE  1
 #define SYRAH_USE_LRB  0
@@ -640,8 +640,8 @@ SYRAH_FORCEINLINE FixedVector& operator OP(const FixedVector& v) { \
   // a * b + c
   template<typename ElemType, int N, bool SIMDMultiple>
   SYRAH_FORCEINLINE FixedVector<ElemType, N, SIMDMultiple> madd(const FixedVector<ElemType, N, SIMDMultiple>& a,
-                                                     const FixedVector<ElemType, N, SIMDMultiple>& b,
-                                                     const FixedVector<ElemType, N, SIMDMultiple>& c) {
+                                                                const FixedVector<ElemType, N, SIMDMultiple>& b,
+                                                                const FixedVector<ElemType, N, SIMDMultiple>& c) {
     FixedVector<ElemType, N, SIMDMultiple> result;
     for (int i = 0; i < N; i++) {
       result[i] = a[i] * b[i] + c[i];
@@ -671,6 +671,16 @@ SYRAH_FORCEINLINE FixedVector& operator OP(const FixedVector& v) { \
     return result;
   }
 
+  // Take an element from a vector and produce a vector worth of
+  // data. Equivalent to vec(a[which])
+  template<typename ElemType, int N, bool SIMDMultiple>
+  SYRAH_FORCEINLINE FixedVector<ElemType, N, SIMDMultiple> splat(const FixedVector<ElemType, N, SIMDMultiple>& a, int which) {
+    FixedVector<ElemType, N, SIMDMultiple> result;
+    for (int i = 0; i < N; i++) {
+      result[i] = a[which];
+    }
+    return result;
+  }
 
   template<typename ElemType, int N, bool SIMDMultiple>
   SYRAH_FORCEINLINE std::ostream& operator<<(std::ostream& os, const FixedVector<ElemType, N, SIMDMultiple>& v) {

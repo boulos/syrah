@@ -122,7 +122,8 @@ enum ReductionOp {
 };
 
 enum PermuteOp {
-  Reverse
+  Reverse,
+  Splat
 };
 
 static const char* BinaryOpToString(const BinaryOp op) {
@@ -241,8 +242,8 @@ static const char* ReductionOpToString(const ReductionOp op) {
 
 static const char* PermuteOpToString(const PermuteOp op) {
   switch (op) {
-  case Reverse:
-    return "REVERSE";
+  case Reverse: return "REVERSE";
+  case Splat: return "SPLAT";
   }
   return "UNREACHABLE";
 }
@@ -603,6 +604,10 @@ bool VecEqualsArrayPermuteOp(const FixedVector<T, N>& vec, const T* a, PermuteOp
     switch (op) {
     case Reverse:
       expected_value = a[N - 1 - i];
+      break;
+    case Splat:
+      // TODO(boulos): Make this an argument
+      expected_value = a[N/2];
       break;
     }
 
@@ -1459,10 +1464,13 @@ bool BitwiseTests() {
 template<typename T, int WIDTH>
 bool PermuteTestsPerWidthTemplatedType() {
   T* kInputA = GetOperatorInput<T>(0);
-
+  FixedVector<T, WIDTH> a(kInputA);
   // Test reverse
-  FixedVector<T, WIDTH> reversed = reverse(FixedVector<T, WIDTH>(kInputA));
+  FixedVector<T, WIDTH> reversed = reverse(a);
+  FixedVector<T, WIDTH> splat_middle = splat(a, WIDTH/2);
+
   if (!VecEqualsArrayPermuteOp(reversed, kInputA, Reverse)) return false;
+  if (!VecEqualsArrayPermuteOp(splat_middle, kInputA, Splat)) return false;
 
   return true;
 }

@@ -517,6 +517,20 @@ for (int index = 0; index < N/4; index++)
     return result;
   }
 
+  template<int N>
+  SYRAH_FORCEINLINE FixedVector<double, N, true> splat(const FixedVector<double, N, true>& a, int which) {
+    FixedVector<double, N, true> result;
+    // To splat from an N-wide vector, we first have to figure out
+    // which sse value to splat from.
+    int which_sse = which >> 1;
+    int which_elem = which & 1;
+    switch (which_elem) {
+    case 0: SYRAH_SSE_LOOP(i) { result.data[i] = _mm_shuffle_pd(a.data[which_sse], a.data[which_sse], _MM_SHUFFLE(0, 0, 0, 0)); } break;
+    default: SYRAH_SSE_LOOP(i) { result.data[i] = _mm_shuffle_pd(a.data[which_sse], a.data[which_sse], _MM_SHUFFLE(1, 1, 1, 1)); } break;
+    }
+    return result;
+  }
+
 #undef SYRAH_MASK_LOOP
 #undef SYRAH_SSE_LOOP
 } // end namespace syrah

@@ -186,12 +186,13 @@ vectorMask, but only highlighted where it is required):
 \item vector = min(vector, vector)
 \item vector = select(vector, vector, vectorMask)
 \item vector = reverse(vector)
+\item vector = splat(vector, int)
 \item vector = prefixSum(vector)
 \item elemType = foldMax(vector)
 \item elemType = foldMin(vector)
 \item elemType = foldSum(vector)
 \item elemType = foldProd(vector)
-\item elemType = element(vector, i)
+\item elemType = vector[int]
 \item vector = $\mathbf{0}$
 \item vector = broadcast(elemType)
 \item vector = load(address)
