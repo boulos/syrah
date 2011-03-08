@@ -22,7 +22,7 @@ namespace syrah {
 
     FixedVectorMask<N> frac_lt_0(frac_val < FixedVector<ElemType, N, SIMDMultiple>::Zero());
     // result = (frac < 0) ? frac + 1 : frac;
-    return select(frac_val + FixedVector<ElemType, N, SIMDMultiple>(ElemType(1)),
+    return select(frac_val + ElemType(1),
                   frac_val,
                   frac_lt_0);
   }
@@ -35,19 +35,18 @@ namespace syrah {
     // just v < truncated (thanks to Chris Kulla).
     //FixedVectorMask<N> need_adjust = v < truncated;
     FixedVectorMask<N> need_adjust = (v < truncated);
-    const FixedVector<ElemType, N, SIMDMultiple> one(ElemType(1.));
-    return select(truncated - one, truncated, need_adjust);
+    return select(truncated - ElemType(1), truncated, need_adjust);
   }
 
   template<typename ElemType, int N, bool SIMDMultiple>
   SYRAH_FORCEINLINE FixedVector<ElemType, N, SIMDMultiple> ceil(const FixedVector<ElemType, N, SIMDMultiple>& v) {
     // ceil(val) = val + 1-frac(val)
     FixedVector<ElemType, N, SIMDMultiple> frac_result(frac(v));
-    FixedVectorMask<N> frac_eq_0(frac_result == FixedVector<ElemType, N, SIMDMultiple>(ElemType(0)));
+    FixedVectorMask<N> frac_eq_0(frac_result == FixedVector<ElemType, N, SIMDMultiple>::Zero());
 
     // result = (frac == 0) ? v : v + 1 - frac(v);
     return select(v,
-                  v + FixedVector<ElemType, N, SIMDMultiple>(ElemType(1)) - frac_result,
+                  v + ElemType(1) - frac_result,
                   frac_eq_0);
   }
 
@@ -60,12 +59,9 @@ namespace syrah {
     FixedVector<ElemType, N> k_real = floor(scaled);
     FixedVector<int, N> k(k_real);
 
-    //const FixedVector<int, N> one(1);
-    //const FixedVector<int, N> three(3);
-
     // Reduced range version of x
     FixedVector<ElemType, N, SIMDMultiple> x = x_full - k_real * pi_over_two_vec;
-    FixedVector<int, N, SIMDMultiple> k_mod4(k & 1);
+    FixedVector<int, N, SIMDMultiple> k_mod4(k & 3);
     FixedVectorMask<N> sin_usecos = (k_mod4 == 1 | k_mod4 == 3);
     FixedVectorMask<N> flip_sign = (k_mod4 > 1);
 
@@ -114,13 +110,9 @@ namespace syrah {
     // Reduced range version of x
     FixedVector<ElemType, N> x = x_full - k_real * pi_over_two_vec;
 
-    const FixedVector<int, N> one(1);
-    const FixedVector<int, N> two(2);
-    const FixedVector<int, N> three(3);
-
-    FixedVector<int, N> k_mod4(k & three);
-    FixedVectorMask<N> cos_usecos = (k_mod4 == FixedVector<int, N>::Zero() | k_mod4 == two);
-    FixedVectorMask<N> flip_sign = (k_mod4 == one | k_mod4 == two);
+    FixedVector<int, N> k_mod4(k & 3);
+    FixedVectorMask<N> cos_usecos = (k_mod4 == FixedVector<int, N>::Zero() | k_mod4 == 2);
+    FixedVectorMask<N> flip_sign = (k_mod4 == 1 | k_mod4 == 2);
 
     const FixedVector<ElemType, N> one_vec(ElemType(1.));
     const FixedVector<ElemType, N> sin_c2(ElemType(-0.16666667163372039794921875));
@@ -164,18 +156,13 @@ namespace syrah {
     FixedVector<ElemType, N> k_real = floor(scaled);
     FixedVector<int, N> k(k_real);
 
-    const FixedVector<int, N> one(1);
-    const FixedVector<int, N> two(2);
-    const FixedVector<int, N> three(3);
-
-
     // Reduced range version of x
     FixedVector<ElemType, N, SIMDMultiple> x = x_full - k_real * pi_over_two_vec;
-    FixedVector<int, N, SIMDMultiple> k_mod4(k & three);
-    FixedVectorMask<N> cos_usecos = (k_mod4 == FixedVector<int, N>::Zero() | k_mod4 == two);
-    FixedVectorMask<N> sin_usecos = (k_mod4 == one | k_mod4 == three);
-    FixedVectorMask<N> sin_flipsign = (k_mod4 > one);
-    FixedVectorMask<N> cos_flipsign = (k_mod4 == one | k_mod4 == two);
+    FixedVector<int, N, SIMDMultiple> k_mod4(k & 3);
+    FixedVectorMask<N> cos_usecos = (k_mod4 == FixedVector<int, N>::Zero() | k_mod4 == 2);
+    FixedVectorMask<N> sin_usecos = (k_mod4 == 1 | k_mod4 == 3);
+    FixedVectorMask<N> sin_flipsign = (k_mod4 > 1);
+    FixedVectorMask<N> cos_flipsign = (k_mod4 == 1 | k_mod4 == 2);
 
     const FixedVector<ElemType, N> one_vec(ElemType(1.));
     const FixedVector<ElemType, N> sin_c2(ElemType(-0.16666667163372039794921875));
@@ -229,17 +216,13 @@ namespace syrah {
 
     FixedVector<ElemType, N, SIMDMultiple> x = y - k_real * pi_over_four_vec;
 
-    const FixedVector<int, N> one(1);
-    const FixedVector<int, N> two(2);
-    const FixedVector<int, N> three(3);
-
     // if k & 1, x -= Pi/4
-    FixedVectorMask<N> need_offset = (k & one) != FixedVector<int, N, SIMDMultiple>::Zero();
+    FixedVectorMask<N> need_offset = (k & 1) != FixedVector<int, N, SIMDMultiple>::Zero();
     x.merge(x - pi_over_four_vec, need_offset);
 
     // if k & 3 == (0 or 3) let z = tan_In...(y) otherwise z = -cot_In0To...
-    FixedVector<int, N, SIMDMultiple> k_mod4 = k & three;
-    FixedVectorMask<N> use_cotan = (k_mod4 == one) | (k_mod4 == two);
+    FixedVector<int, N, SIMDMultiple> k_mod4 = k & 3;
+    FixedVectorMask<N> use_cotan = (k_mod4 == 1) | (k_mod4 == 2);
 
     const FixedVector<ElemType, N> one_vec(ElemType(1.0));
 
@@ -305,14 +288,13 @@ namespace syrah {
   template<typename ElemType, int N, bool SIMDMultiple>
   SYRAH_FORCEINLINE FixedVector<ElemType, N, SIMDMultiple> atan(const FixedVector<ElemType, N, SIMDMultiple>& x_full) {
     const FixedVector<ElemType, N, SIMDMultiple> pi_over_two_vec(ElemType(1.57079637050628662109375));
-    const FixedVector<ElemType, N> one(ElemType(1.0));
     // atan(-x) = -atan(x) (so flip from negative to positive first)
     // if x > 1 -> atan(x) = Pi/2 - atan(1/x)
     FixedVectorMask<N> x_neg = x_full < FixedVector<ElemType, N>::Zero();
     FixedVector<ElemType, N> x_flipped = select(-x_full, x_full, x_neg);
 
-    FixedVectorMask<N> x_gt_1 = x_flipped > one;
-    FixedVector<ElemType, N> x = select(one/x_flipped, x_flipped, x_gt_1);
+    FixedVectorMask<N> x_gt_1 = x_flipped > ElemType(1.0);
+    FixedVector<ElemType, N> x = select(ElemType(1.0)/x_flipped, x_flipped, x_gt_1);
 
     // These coefficients approximate atan(x)/x
     const FixedVector<ElemType, N> atan_c0(ElemType(0.99999988079071044921875));
@@ -449,22 +431,13 @@ namespace syrah {
     // the sign bit has to be 0. If it's 1, we need to return infinity/nan
     // anyway (log(x), x = +-0 -> infinity, x < 0 -> NaN).
     FixedVector<int, N> biased_exponent = int_version >> 23; // This number is [0, 255] but it means [-127, 128]
-    const FixedVector<int, N> one(1);
-    const FixedVector<int, N> one_twenty_seven(127);
 
-    FixedVector<int, N> offset_exponent = biased_exponent + one; // Treat the number as if it were 2^{e+1} * (1.m)/2
-    exponent = offset_exponent - one_twenty_seven; // get the real value
+    FixedVector<int, N> offset_exponent = biased_exponent + 1; // Treat the number as if it were 2^{e+1} * (1.m)/2
+    exponent = offset_exponent - 127; // get the real value
 
     // Blend the offset_exponent with the original input (do this in
     // int for now, until I decide if float can have & and &not)
     FixedVector<int, N> blended = (int_version & nonexponent_mask) | (exponent_neg1);
-#if 0
-    std::cout << "input = " << input << std::endl;
-    std::cout << "biased_exp = " << biased_exponent << std::endl;
-    std::cout << "true_exp = " << exponent << std::endl;
-    std::cout << "blended = " << blended << std::endl;
-    std::cout << "reduced = " << reduced << std::endl;
-#endif
     reduced = FixedVector<float, N>::reinterpret(blended);
   }
 
