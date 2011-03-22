@@ -502,6 +502,11 @@ namespace syrah {
     return exp(y * ln(x));
   }
 
+  template<typename ElemType, int N, bool SIMDMultiple>
+  SYRAH_FORCEINLINE FixedVector<ElemType, N, SIMDMultiple> pow(const FixedVector<ElemType, N, SIMDMultiple>& x, const ElemType& y) {
+    return exp(y * ln(x));
+  }
+
   template<int N, bool SIMDMultiple>
   SYRAH_FORCEINLINE FixedVector<float, N, SIMDMultiple> sqrtf(const FixedVector<float, N, SIMDMultiple>& v1) { return sqrt(v1); }
 
@@ -541,7 +546,30 @@ namespace syrah {
   SYRAH_FORCEINLINE FixedVector<float, N> powf(const FixedVector<float, N>& x, const FixedVector<float, N>& y) { return pow(x, y); }
 
   template<int N>
+  SYRAH_FORCEINLINE FixedVector<float, N> powf(const FixedVector<float, N>& x, const float& y) { return pow(x, y); }
+
+  template<int N>
   SYRAH_FORCEINLINE FixedVector<float, N> atan2f(const FixedVector<float, N>& x, const FixedVector<float, N>& y) { return atan2(x, y); }
+
+#define SYRAH_UNIMPLEMENTED_MATH(func) \
+  template<typename ElemType, int N, bool SIMDMultiple> \
+  SYRAH_FORCEINLINE FixedVector<ElemType, N, SIMDMultiple> func (const FixedVector<ElemType, N, SIMDMultiple>& x) { \
+    FixedVector<ElemType, N, SIMDMultiple> result; \
+    for (int i = 0; i < N; i++) result[i] = std::func(x[i]); \
+    return result; \
+  } \
+  template<int N, bool SIMDMultiple> \
+  SYRAH_FORCEINLINE FixedVector<float, N, SIMDMultiple> func##f (const FixedVector<float, N, SIMDMultiple>& x) { \
+    FixedVector<float, N, SIMDMultiple> result; \
+    for (int i = 0; i < N; i++) result[i] = std::func(x[i]); \
+    return result; \
+  }
+
+  SYRAH_UNIMPLEMENTED_MATH(acos);
+  SYRAH_UNIMPLEMENTED_MATH(asin);
+
+#undef SYRAH_UNIMPLEMENTED_MATH
+
 
 
 } // end namespace syrah
