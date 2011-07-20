@@ -1,8 +1,6 @@
 #ifndef _SYRAH_CYCLE_TIMER_H_
 #define _SYRAH_CYCLE_TIMER_H_
 
-#include <string>
-
 #if defined(__APPLE__)
 #  include <mach/mach.h>
 #  include <mach/mach_time.h>
