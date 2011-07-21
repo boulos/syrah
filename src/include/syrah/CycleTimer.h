@@ -106,12 +106,14 @@ namespace syrah {
       FILE *fp = fopen("/proc/cpuinfo","r");
       char input[1024];
       if (!fp) {
-        throw "CycleTimer::resetScale failed: couldn't find /proc/cpuinfo. Is this not a linux machine?";
+         fprintf(stderr, "CycleTimer::resetScale failed: couldn't find /proc/cpuinfo.");
+         exit(-1);
       }
       // In case we don't find it, e.g. on the N900
       secondsPerTick_val = 1e-9;
       while (!feof(fp) && fgets(input, 1024, fp)) {
-        // NOTE(boulos): Because reading cpuinfo depends on dynamic frequency scaling it's better to read the @ sign first
+        // NOTE(boulos): Because reading cpuinfo depends on dynamic
+        // frequency scaling it's better to read the @ sign first
         float GHz, MHz;
         if (strstr(input, "model name")) {
           char* at_sign = strstr(input, "@");
