@@ -2,14 +2,18 @@
 #define _SYRAH_CYCLE_TIMER_H_
 
 #if defined(__APPLE__)
-#  include <mach/mach.h>
-#  include <mach/mach_time.h>
+  #if defined(__x86_64__)
+    #include <sys/sysctl.h>
+  #else
+    #include <mach/mach.h>
+    #include <mach/mach_time.h>
+  #endif // __x86_64__ or not
 #elif _WIN32
 #  include <windows.h>
 #  include <time.h>
 #else
-#  include <cstdlib>
 #  include <stdio.h>
+#  include <stdlib.h>
 #  include <string.h>
 #  include <sys/time.h>
 #endif
@@ -35,11 +39,7 @@ namespace syrah {
     // Return the current CPU time, in terms of clock ticks.
     // Time zero is at some arbitrary point in the past.
     static SysClock currentTicks() {
-#if defined(__APPLE__)
-      // NOTE(boulos): On recent Apple systems using assembly won't give
-      // you the proper scaling factor, so we should be using
-      // mach_absolute_time.  If this thing doesn't scale though, we
-      // should try to find some other solution.
+#if defined(__APPLE__) && !defined(__x86_64__)
       return mach_absolute_time();
 #elif defined(_WIN32)
       LARGE_INTEGER qwTime;
@@ -76,7 +76,7 @@ namespace syrah {
     }
 
     static const char* tickUnits() {
-#if defined(__APPLE__)
+#if defined(__APPLE__) && !defined(__x86_64__)
       return "ns";
 #elif defined(__WIN32__) || defined(__x86_64__)
       return "cycles";
@@ -92,12 +92,23 @@ namespace syrah {
       static double secondsPerTick_val;
       if (initialized) return secondsPerTick_val;
 #if defined(__APPLE__)
+  #ifdef __x86_64__
+      int args[] = {CTL_HW, HW_CPU_FREQ};
+      unsigned int Hz;
+      size_t len = sizeof(Hz);
+      if (sysctl(args, 2, &Hz, &len, NULL, 0) != 0) {
+         fprintf(stderr, "Failed to initialize secondsPerTick_val!\n");
+         exit(-1);
+      }
+      secondsPerTick_val = 1.0 / (double) Hz;
+  #else
       mach_timebase_info_data_t time_info;
       mach_timebase_info(&time_info);
 
       // Scales to nanoseconds without 1e-9f
       secondsPerTick_val = (1e-9*static_cast<double>(time_info.numer))/
         static_cast<double>(time_info.denom);
+  #endif // x86_64 or not
 #elif defined(_WIN32)
       LARGE_INTEGER qwTicksPerSec;
       QueryPerformanceFrequency(&qwTicksPerSec);
@@ -149,6 +160,13 @@ namespace syrah {
       initialized = true;
       return secondsPerTick_val;
     }
+
+    //////////
+    // Return the conversion from ticks to milliseconds.
+    static double msPerTick() {
+      return secondsPerTick() * 1000.0;
+    }
+
   private:
     CycleTimer();
   };
