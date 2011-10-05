@@ -8,6 +8,10 @@
     #include <mach/mach.h>
     #include <mach/mach_time.h>
   #endif // __x86_64__ or not
+
+  #include <stdio.h>  // fprintf
+  #include <stdlib.h> // exit
+
 #elif _WIN32
 #  include <windows.h>
 #  include <time.h>
