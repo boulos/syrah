@@ -30,8 +30,11 @@ ENDIF(CMAKE_USE_PTHREADS_INIT)
 
 ADD_EXECUTABLE(bringup unitTests/bringup.cc)
 ADD_EXECUTABLE(taskBringup unitTests/taskBringup.cc)
+ADD_EXECUTABLE(timer unitTests/timer.cc)
+
 ADD_EXECUTABLE(saxpy benchmarks/saxpy/saxpy.cc)
 ADD_EXECUTABLE(trig benchmarks/trig/trig.cc)
 ADD_EXECUTABLE(memcpy benchmarks/memcpy/memcpy.cc)
+
 
 TARGET_LINK_LIBRARIES(taskBringup ${SYRAH_THREAD_LIB})

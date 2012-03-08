@@ -75,8 +75,80 @@ namespace syrah {
 
     //////////
     // Return the conversion from seconds to ticks.
-    static double ticksPerSecond() {
-      return 1.0/secondsPerTick();
+    static SysClock ticksPerSecond() {
+       static bool initialized = false;
+       static SysClock ticksPerSecond_val;
+       if (initialized) return ticksPerSecond_val;
+
+#if defined(__APPLE__)
+  #ifdef __x86_64__
+      int args[] = {CTL_HW, HW_CPU_FREQ};
+      unsigned int Hz;
+      size_t len = sizeof(Hz);
+      if (sysctl(args, 2, &Hz, &len, NULL, 0) != 0) {
+         fprintf(stderr, "Failed to initialize ticksPerSecond_val!\n");
+         exit(-1);
+      }
+
+      ticksPerSecond_val = Hz;
+  #else
+      mach_timebase_info_data_t time_info;
+      mach_timebase_info(&time_info);
+
+      // Scales to nanoseconds without 1e-9f
+      ticksPerSecond_val = (1e9 * time_info.denom) / time_info.numer;
+  #endif // x86_64 or not
+#elif defined(_WIN32)
+      LARGE_INTEGER qwTicksPerSec;
+      QueryPerformanceFrequency(&qwTicksPerSec);
+      ticksPerSecond_val = qwTicksPerSec.QuadPart;
+#else
+      FILE *fp = fopen("/proc/cpuinfo","r");
+      char input[1024];
+      if (!fp) {
+         fprintf(stderr, "CycleTimer::resetScale failed: couldn't find /proc/cpuinfo.");
+         exit(-1);
+      }
+      // Set ticksPerSecond to 1GHz in case we don't find it, e.g. on the N900
+      ticksPerSecond_val = 1e9;
+      while (!feof(fp) && fgets(input, 1024, fp)) {
+        // NOTE(boulos): Because reading cpuinfo depends on dynamic
+        // frequency scaling it's better to read the @ sign first
+        float MHz;
+        if (strstr(input, "model name")) {
+          char* at_sign = strstr(input, "@");
+          if (at_sign) {
+            char* after_at = at_sign + 1;
+            char* GHz_str = strstr(after_at, "GHz");
+            char* MHz_str = strstr(after_at, "MHz");
+            if (GHz_str) {
+              float GHz;
+              *GHz_str = '\0';
+              if (1 == sscanf(after_at, "%f", &GHz)) {
+                //printf("GHz = %f\n", GHz);
+                ticksPerSecond_val = 1e9 * Ghz;
+                break;
+              }
+            } else if (MHz_str) {
+              *MHz_str = '\0';
+              if (1 == sscanf(after_at, "%f", &MHz)) {
+                //printf("MHz = %f\n", MHz);
+                ticksPerSecond_val = 1e6 * MHz;
+                break;
+              }
+            }
+          }
+        } else if (1 == sscanf(input, "cpu MHz : %f", &MHz)) {
+          //printf("MHz = %f\n", MHz);
+          ticksPerSecond_val = 1e6 * MHz;
+          break;
+        }
+      }
+      fclose(fp);
+#endif
+
+      initialized = true;
+      return ticksPerSecond_val;
     }
 
     static const char* tickUnits() {
@@ -92,83 +164,19 @@ namespace syrah {
     //////////
     // Return the conversion from ticks to seconds.
     static double secondsPerTick() {
-      static bool initialized = false;
-      static double secondsPerTick_val;
-      if (initialized) return secondsPerTick_val;
-#if defined(__APPLE__)
-  #ifdef __x86_64__
-      int args[] = {CTL_HW, HW_CPU_FREQ};
-      unsigned int Hz;
-      size_t len = sizeof(Hz);
-      if (sysctl(args, 2, &Hz, &len, NULL, 0) != 0) {
-         fprintf(stderr, "Failed to initialize secondsPerTick_val!\n");
-         exit(-1);
-      }
-      secondsPerTick_val = 1.0 / (double) Hz;
-  #else
-      mach_timebase_info_data_t time_info;
-      mach_timebase_info(&time_info);
-
-      // Scales to nanoseconds without 1e-9f
-      secondsPerTick_val = (1e-9*static_cast<double>(time_info.numer))/
-        static_cast<double>(time_info.denom);
-  #endif // x86_64 or not
-#elif defined(_WIN32)
-      LARGE_INTEGER qwTicksPerSec;
-      QueryPerformanceFrequency(&qwTicksPerSec);
-      secondsPerTick_val = 1.0/static_cast<double>(qwTicksPerSec.QuadPart);
-#else
-      FILE *fp = fopen("/proc/cpuinfo","r");
-      char input[1024];
-      if (!fp) {
-         fprintf(stderr, "CycleTimer::resetScale failed: couldn't find /proc/cpuinfo.");
-         exit(-1);
-      }
-      // In case we don't find it, e.g. on the N900
-      secondsPerTick_val = 1e-9;
-      while (!feof(fp) && fgets(input, 1024, fp)) {
-        // NOTE(boulos): Because reading cpuinfo depends on dynamic
-        // frequency scaling it's better to read the @ sign first
-        float GHz, MHz;
-        if (strstr(input, "model name")) {
-          char* at_sign = strstr(input, "@");
-          if (at_sign) {
-            char* after_at = at_sign + 1;
-            char* GHz_str = strstr(after_at, "GHz");
-            char* MHz_str = strstr(after_at, "MHz");
-            if (GHz_str) {
-              *GHz_str = '\0';
-              if (1 == sscanf(after_at, "%f", &GHz)) {
-                //printf("GHz = %f\n", GHz);
-                secondsPerTick_val = 1e-9f / GHz;
-                break;
-              }
-            } else if (MHz_str) {
-              *MHz_str = '\0';
-              if (1 == sscanf(after_at, "%f", &MHz)) {
-                //printf("MHz = %f\n", MHz);
-                secondsPerTick_val = 1e-6f / GHz;
-                break;
-              }
-            }
-          }
-        } else if (1 == sscanf(input, "cpu MHz : %f", &MHz)) {
-          //printf("MHz = %f\n", MHz);
-          secondsPerTick_val = 1e-6f / MHz;
-          break;
-        }
-      }
-      fclose(fp);
-#endif
-
-      initialized = true;
-      return secondsPerTick_val;
+       return 1.0 / ticksPerSecond();
     }
 
     //////////
     // Return the conversion from ticks to milliseconds.
     static double msPerTick() {
-      return secondsPerTick() * 1000.0;
+      return secondsPerTick() * 1e3;
+    }
+
+    //////////
+    // Return the conversion from ticks to microseconds.
+    static double usPerTick() {
+      return secondsPerTick() * 1e6;
     }
 
   private:
