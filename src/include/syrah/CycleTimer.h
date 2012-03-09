@@ -126,7 +126,7 @@ namespace syrah {
               *GHz_str = '\0';
               if (1 == sscanf(after_at, "%f", &GHz)) {
                 //printf("GHz = %f\n", GHz);
-                ticksPerSecond_val = 1e9 * Ghz;
+                ticksPerSecond_val = 1e9 * GHz;
                 break;
               }
             } else if (MHz_str) {
